@@ -5,6 +5,7 @@ format:
   html:
       theme: flatly
       toc: true
+      embed-resources: true
 ---
 
 ```{css, echo = FALSE}
@@ -13,7 +14,10 @@ p {
 }
 ```
 
+
+
 ## Section 1: Dataset Preparation and Description
+
 
 This statistical report supports a public-health screening initiative aimed at identifying adult women at high risk for diabetes based on clinical and demographic measurements. The objective of this first section is to introduce the dataset, define the unit of analysis, and justify the application of Linear Discriminant Analysis (LDA) as an effective method for clinical group separation.
 
@@ -81,7 +85,10 @@ pairs.panels(train[, -8], method = "pearson", hist.col = "royalblue",
              density = TRUE, ellipses = FALSE, stars = TRUE, breaks = 15, lm = TRUE)
 ```
 
+
+
 ## Section 2: Fitting the LDA Model and Interpretation.
+
 
 A Linear Discriminant Analysis (LDA) was fitted to the training dataset ('Pima.tr' as train), using type as grouping variable and all other health measurements as predictors.
 
@@ -142,7 +149,10 @@ Based on the standardized absolute values, glucose dominates the classification 
 
 To identify women at higher risk for diabetes, this model essentially creates a "risk scoring system" based on their medical screening results. It looks at all a patient's measurements and combines them into a single score. Certain factors carry much more weight in this system, for example high blood sugar (glucose) add significantly more points to a patient's risk score than their blood pressure does. If a woman's combined score crosses a specific threshold, the system flags her as showing signs of diabetes, allowing public health professionals to prioritize her for follow-up care and early intervention.
 
+
+
 ## Section 3: Model Fit Evaluation
+
 
 In this section we will use the fitted model to predict diabetes status for both training and testing datasets and inspect its performance in classifying the women's records in the two groups accurately. It is important to note again our prior knowledge of the diabetes status for each woman (variable Type), as a means of our comparison. With this information, we can moreover use posterior probabilities to identify observations that are classified with high confidence and observations close to the decision boundary.
 
@@ -215,6 +225,7 @@ print(head(test[test$prob_Yes > 0.90, c("glu", "bmi", "type", "prediction", "pro
 cat("\n--- Borderline Prediction Example (50% Diabetes Probability) ---\n")
 print(head(test[test$prob_Yes > 0.49 & test$prob_Yes < 0.55, c("glu", "bmi", "type", "prediction", "prob_Yes")]))
 ```
+
 
 
 ## Section 4: Visualization of Discriminant Scores and Posterior Probabilities
