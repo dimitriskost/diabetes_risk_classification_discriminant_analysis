@@ -1,0 +1,305 @@
+---
+title: "Diabetes Risk Classification with Discriminant Analysis"
+author: "Dimitrios Kostinis"
+format: 
+  html:
+      theme: flatly
+      toc: true
+---
+
+```{css, echo = FALSE}
+p {
+  text-align: justify;
+}
+```
+
+## Section 1: Dataset Preparation and Description
+
+This statistical report supports a public-health screening initiative aimed at identifying adult women at high risk for diabetes based on clinical and demographic measurements. The objective of this first section is to introduce the dataset, define the unit of analysis, and justify the application of Linear Discriminant Analysis (LDA) as an effective method for clinical group separation.
+
+**Dataset Overview**
+
+The Pima Indians diabetes dataset is a well-known public dataset distributed with the R package MASS. The unit of analysis is an adult female participant in the diabetes screening study. The package contains a training set, Pima.tr, and a test set, Pima.te. The response variable type indicates whether each participant tested positive for diabetes. The explanatory variables include glucose concentration, blood pressure, body mass index, age, and other health-related measurements.
+
+**Method Selection and Goals**
+
+Linear Discriminant Analysis (LDA) is an ideal method for this scenario because the goal is to classify patients into predefined, clinically meaningful categories. The explanatory variables (predictors) such as glucose concentration, BMI, and blood pressure are continuous, numerical measurements. In the following analysis we will implement the LDA, as is specifically designed to handle continuous predictors and find the best linear combination of these features to maximize the separation between categorical groups.
+
+```{r}
+#| label: Loading Necessary Packages
+#| message: false
+#| warning: false
+
+# The necessary packages for reproduction
+# install.packages(c("MASS", "ggplot2", "psych"))
+library(MASS)
+library(ggplot2)
+library(psych)
+```
+
+```{r}
+#| label: Loading and comprehending the datasets
+#| warning: false
+
+# Extracting the datasets
+data(Pima.tr)
+data(Pima.te)
+
+# Data set split for training and testing
+train <- Pima.tr
+test <- Pima.te
+
+# Coding of the grouping variable type:
+cat(sprintf("Class of Type variable is %s with levels %s and %s \n" , class(train$type), levels(train$type)[1], levels(train$type)[2]))
+```
+
+Below we will present descriptive statistics and plots of all the variables among the two meaningful groups.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| paged-print: true
+
+# Training and testing set descriptives
+cat("\n---- Descriptive statistics for all of the women's records ---\n")
+descriptives <- describe(rbind(train[, -8], test[, -8]))
+print(descriptives)
+
+# By diabetes status
+cat(" \n--- Descriptive statistics of the model's training set of women's records with Diabetes ---\n")
+yes_diabetes_desc <- describe(train[train$type == "Yes", -8])
+print(yes_diabetes_desc)
+
+cat("\n--- Descriptive statistics of the model's training set of women's records without Diabetes ---\n")
+no_diabetes_desc <- describe(train[train$type == "No", -8])
+print(no_diabetes_desc)
+
+cat("\n--- Scatterplots, Histograms and Correlations of the dataset's variables ---")
+
+pairs.panels(train[, -8], method = "pearson", hist.col = "royalblue", 
+             density = TRUE, ellipses = FALSE, stars = TRUE, breaks = 15, lm = TRUE)
+```
+
+## Section 2: Fitting the LDA Model and Interpretation.
+
+A Linear Discriminant Analysis (LDA) was fitted to the training dataset ('Pima.tr' as train), using type as grouping variable and all other health measurements as predictors.
+
+```{r}
+#| label: LDA Model fit
+#| message: false
+
+lda_model <- lda(type ~ ., data = train)
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+cat("\n Prior Type Distribution \n")
+print(lda_model$prior)
+cat("\n Group Means \n")
+print(lda_model$means)
+```
+
+**Prior Probabilities:**
+
+The prior probabilities indicate the distribution of the 2 diabetes classes in our training set. Approximately 66% of women in the sample do not have diabetes, while 34% do.
+
+**Group Means:**
+
+The group means highlight the clinical differences between the two groups. Women in the "Yes" group show higher average values across all risk factors, such as plasma glucose concentration ('glu'), body mass index ('bmi'), and age.
+
+**LDA Coefficients for Variable Importance:**
+
+Due to differences in measuring scales among our variables and the LDA's scale sensitivity, the raw coefficients output would not justly measure the importance of each one from its weight. For this reason we will fit the model on the scaled data and extract the variable importance. It is worth noting the LDA model is immutable in scaling, thus we will get the same classification rule and predictions.
+
+```{r}
+#| message: false
+
+# Scaling the training dataset
+train_scaled <- train
+train_scaled[, -8] <- scale(train_scaled[, -8])
+
+# Fitting the model on scaled data
+lda_model_scaled <- lda(type ~ ., data = train_scaled)
+standardized_coefs <- abs(lda_model_scaled$scaling[, 1])
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+cat("\n--- Standardized Coefficients, Sorted by Variable Importance ---\n")
+sort(standardized_coefs, decreasing = TRUE)
+
+```
+
+Based on the standardized absolute values, glucose dominates the classification rule, having overwhelmingly the heaviest weight. It is followed by pedigree function, age, BMI and number of pregnancies, while blood pressure and skin thickness contribute to a lesser degree.
+
+**Plain Language Explanation for Public Health Audience**
+
+To identify women at higher risk for diabetes, this model essentially creates a "risk scoring system" based on their medical screening results. It looks at all a patient's measurements and combines them into a single score. Certain factors carry much more weight in this system, for example high blood sugar (glucose) add significantly more points to a patient's risk score than their blood pressure does. If a woman's combined score crosses a specific threshold, the system flags her as showing signs of diabetes, allowing public health professionals to prioritize her for follow-up care and early intervention.
+
+## Section 3: Model Fit Evaluation
+
+In this section we will use the fitted model to predict diabetes status for both training and testing datasets and inspect its performance in classifying the women's records in the two groups accurately. It is important to note again our prior knowledge of the diabetes status for each woman (variable Type), as a means of our comparison. With this information, we can moreover use posterior probabilities to identify observations that are classified with high confidence and observations close to the decision boundary.
+
+```{r}
+#| label: Model Prediction
+#| message: false
+#| warning: false
+
+# Prediction for the train dataset
+pred_train <- predict(lda_model, newdata = train)
+train$prediction <- pred_train$class
+# Posterior probabilities
+train$prob_No <- pred_train$posterior[, 1]
+train$prob_Yes <- pred_train$posterior[, 2]
+
+# Prediction fot test dataset 
+pred_test <- predict(lda_model, newdata = test)
+test$prediction <- pred_test$class
+# Posterior probabilities
+test$prob_No <- pred_test$posterior[, 1]
+test$prob_Yes <- pred_test$posterior[, 2]
+```
+
+**Model Evaluation**
+
+```{r}
+#| label: Model Evaluation Test
+#| echo: false
+#| message: false
+#| warning: false
+
+cat("--- Confusion Matrix for Test Dataset ---\n")
+conf_matrix <- table(Actual = test$type, Predicted = test$prediction)
+print(conf_matrix)
+
+accuracy <- sum(diag(conf_matrix)) / sum(conf_matrix)
+cat(sprintf("\n Overall Test Accuracy: %.2f%% \n", accuracy * 100))
+```
+
+The confusion matrix reveals the accurate classifications on the main diagonal and the incorrect on the rest of the cells. By dividing those 2 sums, we get the overall classification accuracy on unseen data which is 79.82%. For verification purposes, we will repeat this process on the train dataset.
+
+
+```{r}
+#| label: Model Evaluation Train
+#| echo: false
+#| message: false
+#| warning: false
+
+cat("--- Confusion Matrix for Train Dataset ---\n")
+conf_matrix <- table(Actual = train$type, Predicted = train$prediction)
+print(conf_matrix)
+
+accuracy <- sum(diag(conf_matrix)) / sum(conf_matrix)
+cat(sprintf("\n Overall Train Accuracy: %.2f%% \n", accuracy * 100))
+```
+
+
+Paradoxically, the overall accuracy on the training dataset is slightly lower than the test dataset. The combination of higher test to train ratio and the nature of LDA can interpret this unexpected result. LDA as linear method applies a linear classification boundary that minimizes variance and doesn't overfit the data, without this hindering the ability to accurately predict unseen data, as we previously realized.
+
+
+**Posterior Probabilities**
+
+```{r}
+#| label: Posterior Probabilities
+#| echo: false
+
+cat("\n--- Confident Prediction Example (90% Diabetes Probability) ---\n")
+print(head(test[test$prob_Yes > 0.90, c("glu", "bmi", "type", "prediction", "prob_Yes")]))
+
+cat("\n--- Borderline Prediction Example (50% Diabetes Probability) ---\n")
+print(head(test[test$prob_Yes > 0.49 & test$prob_Yes < 0.55, c("glu", "bmi", "type", "prediction", "prob_Yes")]))
+```
+
+
+## Section 4: Visualization of Discriminant Scores and Posterior Probabilities
+
+
+In this section we visualize the model's function and performance on the test dataset using 2 plots. They will allow us to assess the linear discriminant classification rule that separates the two groups and discover regions of classification uncertainty.
+
+```{r}
+#| label: LDA Visyalization
+#| echo: false
+#| message: false
+#| warning: false
+
+# Extracting discriminant scores for the test dataset
+test$LD1 <- predict(lda_model, newdata = test)$x[, 1]
+
+# First plot: PDF of Discriminant Scores
+p1 <- ggplot(test, aes(x = LD1, fill = type)) +
+  geom_density(alpha = 0.5) +
+  labs(title = "Plot 1: Distribution of Discriminant Scores by Diabetes Status",
+       x = "Discriminant Score",
+       y = "Density",
+       fill = "Actual Status") +
+  theme_minimal() +
+  theme(legend.position = "top")
+print(p1)
+```
+
+The above plot displays the distribution of LDA scores for both groups. We notice 2 distinct peaks, indicating a shift between the centers of the two distributions; the women without diabetes (No) concentrating on the negative side, while women with diabetes on the positive. A big area of overlap around 0 is also present, indicating those predictors cannot perfectly separate the two groups, as we found out from our model's accuracy.
+
+
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# Boxplot for Posterior Probabilities
+ggplot(test, aes(x = type, y = prob_Yes, fill = type)) +
+  geom_boxplot(alpha = 0.7) +
+  labs(title = "Predicted Probability of Diabetes by Actual Status",
+       x = "Actual Diabetes Status",
+       y = "Posterior Probability Pr(Yes)",
+       fill = "Status") +
+  theme_minimal()
+```
+
+The boxplots above depict how the model's predicted probability of diabetes aligns with the actual diabetes status of the patients. 
+For the diabetes negative patients, the model shows confidence in it's predictions, routing from the small size of the box. The median posterior probability is very low (around 10-15%) and the majority of observations cluster near zero. However, several outliers do appear indicating many false-positives; women without diabetes with measurement predictors in the diabetes range.
+For the diabetes positive group, the model is less confident in it's predictions and assigns significantly higher probabilities in to the actual diabetic patients (above 60%). 
+
+```{r}
+#| label: Scatterplot
+#| echo: false
+#| message: false
+#| warning: false
+
+# Scatterplot of Scores over Probabilities
+ggplot(test, aes(x = LD1, y = prob_Yes, color = type)) +
+  geom_point(alpha = 0.7, size = 2.5) +
+  # 50% Horizontal discriminant line
+  geom_hline(yintercept = 0.5, linetype = "dashed", color = "black", linewidth = 0.8) +
+  # Vertical axis line
+  geom_vline(xintercept = 0, linetype = "dashed", color = "black", linewidth = 0.8) +
+  annotate("text", x = 2, y = 0.95, label = "True Positives", color = "darkblue", fontface = "bold") +
+  annotate("text", x = -2, y = 0.05, label = "True Negatives", color = "darkred", fontface = "bold") +
+  labs(title = "LDA Decision Boundaries: Discriminant Score vs. Posterior Probability",
+       subtitle = "Quadrants perfectly map the confusion matrix results",
+       x = "Discriminant Score (LD1)",
+       y = "Posterior Probability Pr(Yes)",
+       color = "Actual Status") +
+  scale_color_manual(values = c("No" = "#F8766D", "Yes" = "#00BFC4")) +
+  theme_minimal() +
+  theme(legend.position = "right")
+```
+
+LDA Scores over the predicted Posterior Probabilities form a S-curve. The theoretical decision boundaries (Probability = 0.5 and LD1 = 0) divide the plot into four distinct quadrants, visually mapping our confusion matrix:
+
+- Top-Right (True Positives): Actual diabetic patients, correctly classified with high probabilities.
+- Bottom-Left (True Negatives): Non-diabetic patients, correctly classified with low probabilities.
+- Top-Left (False Positives): Non-diabetic patients incorrectly flagged as high-risk.
+- Bottom-Right (False Negatives): Diabetic patients missed by the model.
+The 2-color overlap shows our previously discussed model classification uncertainty.
+
+
+
+
+
