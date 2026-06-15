@@ -1,5 +1,5 @@
 ===========================================================================================
-# Diabetes Risk Classification using LDA
+Diabetes Risk Classification using LDA
 ===========================================================================================
 Student: Dimitrios Kostinis
 ID: 1112 2021 00235
