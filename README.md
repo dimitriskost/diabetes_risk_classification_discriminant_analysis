@@ -1,11 +1,4 @@
-===========================================================================================
-Diabetes Risk Classification using LDA
-===========================================================================================
-Student: Dimitrios Kostinis
-ID: 1112 2021 00235
-Class: Multivariate Data Analysis
-Date: April 2026
-===========================================================================================
+# Diabetes Risk Classification using LDA
 
 This repository contains a statistical report and R code for predicting diabetes risk using
 Linear Discriminant Analysis (LDA) on the Pima Indians dataset.
